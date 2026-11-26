@@ -12,14 +12,28 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Seed the application's database.
+     * Membuat 1 akun admin dan 1 akun user sesuai credentials.txt
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // ── Admin Account ─────────────────────────────────────────
+        User::firstOrCreate(
+            ['email' => 'admin@gmail.com'],
+            [
+                'name'     => 'Admin',
+                'password' => 'admin123',
+                'role'     => 'admin',
+            ],
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // ── User Account ──────────────────────────────────────────
+        User::firstOrCreate(
+            ['email' => 'user@gmail.com'],
+            [
+                'name'     => 'User',
+                'password' => 'user123',
+                'role'     => 'user',
+            ],
+        );
     }
 }
