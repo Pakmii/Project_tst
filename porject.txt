@@ -1,0 +1,147 @@
+Tahap 0: Persiapan Server & Database
+Nyalakan MySQL (dan Apache jika perlu phpMyAdmin) di XAMPP Control Panel.
+Pastikan database project-tst sudah dibuat di phpMyAdmin.
+Jalankan perintah berikut di terminal dari folder proyek:
+powershell
+php artisan migrate:fresh --seed
+php artisan serve
+Di Postman, pastikan setiap request memakai header:
+Accept: application/json
+Content-Type: application/json (untuk POST / PUT)
+Tahap 1: Uji Akses Publik (Tanpa Token)
+
+Pastikan tab Authorization di Postman diset ke No Auth, lalu coba GET ke semua tabel resource (harus menghasilkan 200 OK):
+
+Tabel	Method & URL
+barang	GET http://localhost:8000/api/barang
+kategori	GET http://localhost:8000/api/kategori
+lokasi	GET http://localhost:8000/api/lokasi
+laporan	GET http://localhost:8000/api/laporan
+klaim	GET http://localhost:8000/api/klaim
+status_barang	GET http://localhost:8000/api/status-barang
+
+(Coba juga POST http://localhost:8000/api/barang tanpa token → harus ditolak 401 Unauthorized.)
+
+Tahap 2: Login User & Admin (Tabel users)
+
+Login sebagai User (POST http://localhost:8000/api/login):
+
+json
+{
+  "email": "user@gmail.com",
+  "password": "user123"
+}
+
+Simpan token dari response sebagai <TOKEN_USER>.
+
+Login sebagai Admin (POST http://localhost:8000/api/login):
+
+json
+{
+  "email": "admin@gmail.com",
+  "password": "admin123"
+}
+
+Simpan token dari response sebagai <TOKEN_ADMIN>.
+
+(Opsional) Uji Register (POST http://localhost:8000/api/register) dengan email baru → role otomatis menjadi user.
+
+Tahap 3: Uji Role user (CRU + Ownership + Tolak Delete)
+
+Set Authorization → Bearer Token ke <TOKEN_USER>, lalu lakukan pola Create → Read → Update → Delete (harus ditolak) pada ke-6 tabel berikut. Catat id yang didapat saat POST (misalnya id = 1).
+
+Tabel barang
+
+POST /api/barang → 201 Created
+json
+{ "nama_barang": "Laptop ASUS", "kondisi": "Baik" }
+GET /api/barang/1 → 200 OK
+PUT /api/barang/1 (milik sendiri) → 200 OK
+json
+{ "kondisi": "Lecet Pemakaian" }
+DELETE /api/barang/1 → 403 Forbidden (User tidak boleh menghapus)
+
+Tabel kategori
+
+POST /api/kategori → 201 Created
+json
+{ "nama_kategori": "Elektronik", "deskripsi": "Barang elektronik" }
+GET /api/kategori/1 → 200 OK
+PUT /api/kategori/1 → 200 OK ({ "deskripsi": "Perangkat elektronik kampus" })
+DELETE /api/kategori/1 → 403 Forbidden
+
+Tabel lokasi
+
+POST /api/lokasi → 201 Created
+json
+{ "nama_lokasi": "Gedung A", "keterangan": "Lantai 2" }
+GET /api/lokasi/1 → 200 OK
+PUT /api/lokasi/1 → 200 OK ({ "keterangan": "Lantai 2 Ruang 201" })
+DELETE /api/lokasi/1 → 403 Forbidden
+
+Tabel laporan
+
+POST /api/laporan → 201 Created
+json
+{ "judul_laporan": "Kehilangan Laptop", "deskripsi": "Laptop hilang di ruang kelas" }
+GET /api/laporan/1 → 200 OK
+PUT /api/laporan/1 → 200 OK ({ "deskripsi": "Laptop hilang di Gedung A lantai 2" })
+DELETE /api/laporan/1 → 403 Forbidden
+
+Tabel klaim
+
+POST /api/klaim → 201 Created
+json
+{ "nama_pengklaim": "Budi", "bukti_kepemilikan": "Memiliki stiker merah" }
+GET /api/klaim/1 → 200 OK
+PUT /api/klaim/1 → 200 OK ({ "bukti_kepemilikan": "Stiker merah dan serial number sesuai" })
+DELETE /api/klaim/1 → 403 Forbidden
+
+Tabel status_barang
+
+POST /api/status-barang → 201 Created
+json
+{ "nama_status": "Ditemukan", "keterangan": "Barang sudah ditemukan" }
+GET /api/status-barang/1 → 200 OK
+PUT /api/status-barang/1 → 200 OK ({ "keterangan": "Menunggu pengambilan pemilik" })
+DELETE /api/status-barang/1 → 403 Forbidden
+Tahap 4: Uji Role admin (Full CRUD + Manajemen users) + Uji Ownership
+
+Ganti Bearer Token di Postman ke <TOKEN_ADMIN>:
+
+Buat 1 data milik Admin (contoh pada barang):
+
+POST /api/barang → 201 Created (misal menghasilkan id = 2, dengan user_id milik Admin)
+json
+{ "nama_barang": "Dompet Kulit", "kondisi": "Baik" }
+
+Uji Ownership (Nilai Tambah):
+
+Ganti sebentar token ke <TOKEN_USER>, lalu coba edit data milik Admin: PUT /api/barang/2 → 403 Forbidden ("Anda hanya dapat mengubah data milik Anda sendiri.")
+Kembalikan token ke <TOKEN_ADMIN>, lalu coba edit data milik User (id = 1): PUT /api/barang/1 → 200 OK (Admin bisa mengubah data siapa pun).
+
+Uji DELETE sebagai Admin (semua harus 200 OK):
+
+DELETE /api/barang/1
+DELETE /api/kategori/1
+DELETE /api/lokasi/1
+DELETE /api/laporan/1
+DELETE /api/klaim/1
+DELETE /api/status-barang/1
+
+Uji Manajemen Tabel users (Admin Only):
+
+GET /api/users → 200 OK (menampilkan daftar user)
+GET /api/users/2 → 200 OK (detail user)
+PUT /api/users/2 → 200 OK ({ "name": "User Diedit" })
+(Opsional jika sudah register user ke-3) DELETE /api/users/3 → 200 OK
+(Coba GET /api/users pakai <TOKEN_USER> → harus 403 Forbidden)
+Tahap 5: Uji Endpoint Auth Tambahan
+
+Dengan <TOKEN_USER> atau <TOKEN_ADMIN>:
+
+GET http://localhost:8000/api/me → melihat profil user yang sedang login (200 OK).
+POST http://localhost:8000/api/refresh → mendapatkan token JWT baru (200 OK).
+POST http://localhost:8000/api/logout → menginvalidasi token (200 OK; jika token lama dipakai lagi akan 401 Unauthorized).
+
+Detail akun dan daftar lengkap endpoint juga tersedia di
